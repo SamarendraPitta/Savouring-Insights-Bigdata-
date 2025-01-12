@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pizza Business Sentiment Analysis</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+			font-family: Arial, sans-serif;
+			margin: 0;
+			padding: 0;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start; /* Keeps everything at the top initially */
+			align-items: center;
+			background-color: #f4f4f4; /* Optional: Background color */
+			min-height: 100vh;
+		}
+
+		h1 {
+			margin: 20px 0; /* Adds spacing between the title and the card */
+			font-size: 24px;
+			color: #333; /* Optional */
+		}
+        .card-container {
+			margin-top:50px;
+            width: 100%;
+            max-width: 1250px;
+            margin: 0 auto;
+        }
+
+        .card {
+            display: flex;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow: hidden;
+            transition: all 0.3s ease-out;
+        }
+        .card-left {
+            width: 300px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .card-right {
+            flex-grow: 0;
+            width: 0;
+            overflow: hidden;
+            transition: all 0.3s ease-out;
+        }
+        .card.expanded .card-right {
+            flex-grow: 1;
+            width: auto;
+            padding: 20px;
+        }
+        .graph-container {
+            width: 100%;
+            height: 100%;
+        }
+        select, button {
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        #submit_button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #submit_button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+	<h1>Pizza Restaurant Reviews</h1>
+    <div class="card-container">
+        <div class="card">
+            <div class="card-left">
+                <div>
+                    <label for="state">State:</label>
+                    <select id="state">
+                        <option value="">Select State</option>
+                        {% for state in state_codes %}
+                        <option value="{{ state }}">{{ state }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="city">City:</label>
+                    <select id="city" disabled>
+                        <option value="">Select City</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="business">Business:</label>
+                    <select id="business" disabled>
+                        <option value="">Select Business</option>
+                    </select>
+                </div>
+                <button id="submit_button" disabled>Submit</button>
+            </div>
+            <div class="card-right">
+                <div class="graph-container">
+                    <!-- Sentiment Analysis Plot will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        $('#state').off('change').on('change', function () {
+            let state = $(this).val();
+            $('#city').html('<option value="">Select City</option>');
+            $('#business').html('<option value="">Select Business</option>');
+
+            if (state) {
+                $.ajax({
+                    url: '/get_cities',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ state: state }),
+                    success: function (response) {
+                        if (response.cities.length > 0) {
+                            response.cities.forEach(city => {
+                                $('#city').append(`<option value="${city}">${city}</option>`);
+                            });
+                            $('#city').prop('disabled', false);
+                        } else {
+                            $('#city').append('<option value="">No cities found with pizza businesses</option>');
+                        }
+                    },
+                    error: function () {
+                        alert('Failed to fetch cities.');
+                    }
+                });
+            } else {
+                $('#city').prop('disabled', true);
+            }
+
+            checkSubmitButton();
+        });
+
+        $('#city').off('change').on('change', function () {
+            let state = $('#state').val();
+            let city = $(this).val();
+            $('#business').html('<option value="">Select Business</option>');
+
+            if (city) {
+                $.ajax({
+                    url: '/get_businesses',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ state: state, city: city }),
+                    success: function (response) {
+                        $('#business').prop('disabled', false);
+                        if (response.businesses.length > 0) {
+                            response.businesses.forEach(business => {
+                                $('#business').append(`<option value="${business}">${business}</option>`);
+                            });
+                        } else {
+                            $('#business').append('<option value="">No businesses found</option>');
+                        }
+                    },
+                    error: function () {
+                        alert('Failed to fetch businesses.');
+                    }
+                });
+            } else {
+                $('#business').prop('disabled', true);
+            }
+
+            checkSubmitButton();
+        });
+
+        $('#submit_button').off('click').on('click', function () {
+            let selectedBusiness = $('#business').val();
+            let state = $('#state').val();
+            let city = $('#city').val();
+            
+            if (selectedBusiness && state && city) {
+                $.ajax({
+                    url: '/get_sentiment_analysis',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        business_name: selectedBusiness,
+                        city: city,
+                        state: state
+                    }),
+                    success: function (response) {
+                        if (response.image) {
+                            $('.card').addClass('expanded');
+                            $('.graph-container').html('<img src="data:image/png;base64,' + response.image + '" />');
+                        } else if (response.error) {
+                            alert(response.error);
+                        }
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        alert('Error: ' + (jqXHR.responseJSON ? jqXHR.responseJSON.error : textStatus));
+                    }
+                });
+            } else {
+                alert('Please select a business, state, and city');
+            }
+        });
+
+        function checkSubmitButton() {
+            let allSelected = $('#state').val() && $('#city').val() && $('#business').val();
+            $('#submit_button').prop('disabled', !allSelected);
+        }
+
+        $('#state, #city, #business').on('change', checkSubmitButton);
+    });
+    </script>
+</body>
+</html>
