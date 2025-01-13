@@ -2,7 +2,8 @@ Savoring Insights - Key Points
 
 Overview:
 An intelligent sentiment-based review analysis system for restaurants.
-Summarizes reviews into three categories: Food, Ambience, and Service.
+Analyzed 40M restaurant reviews using Big Data technologies, performed sentiment analysis with classification model accuracy of 85%.
+Summarizes reviews into three categories: Food, Ambience, and Service. 
 
 Feature Extraction:
 Utilizes the Apriori algorithm to extract key features from reviews.
